@@ -1,3 +1,5 @@
+name: claude-graphana
+
 services:
   otel-collector:
     image: docker.io/otel/opentelemetry-collector:0.160.0

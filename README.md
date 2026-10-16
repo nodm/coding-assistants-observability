@@ -60,10 +60,12 @@ Telemetry **data** (Prometheus/Loki/Tempo/Grafana state) lives in named Podman/D
 ### 2. Clone and start the stack
 
 ```bash
-git clone <your-repo-url> claude-graphana
-cd claude-graphana
+git clone <your-repo-url> coding-assistants-observability
+cd coding-assistants-observability
 podman-compose up -d        # or: docker compose up -d
 ```
+
+> **Note:** `compose.yaml` pins an explicit `name: claude-graphana` (a leftover from this project's original folder name). This is deliberate, not a bug — Podman/Docker Compose derives container and volume names from this project name, so changing it would create brand-new, empty volumes and orphan all historical data. Leave it as-is unless you're deliberately starting fresh.
 
 First run pulls 5 images (~1–2 GB total). Verify everything is healthy:
 
