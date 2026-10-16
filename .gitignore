@@ -1,0 +1,17 @@
+# Secrets / local overrides — never commit real credentials
+.env
+*.local.yaml
+*.local.yml
+compose.override.yaml
+compose.override.yml
+
+# Grafana/Prometheus/Loki/Tempo exports or debug dumps that may embed real telemetry data
+*.snapshot.json
+*-dump.json
+*.jsonl
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*~

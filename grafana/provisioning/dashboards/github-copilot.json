@@ -1,0 +1,206 @@
+{
+  "uid": "github-copilot-usage",
+  "title": "GitHub Copilot Usage",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Chat calls",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(increase({__name__=~\"gen_ai_client_operation_duration(_seconds)?_count\", gen_ai_operation_name=\"chat\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Agent invocations",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(increase({__name__=~\"gen_ai_invoke_agent_duration_seconds_count|copilot_chat_agent_invocation_duration_count\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Tool calls",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(increase({__name__=~\"github_copilot_tool_call_count_total|copilot_chat_tool_call_count_total\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Total tokens",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "(sum(increase(gen_ai_client_inference_usage_input_tokens_total[$__range])) or vector(0)) + (sum(increase(gen_ai_client_inference_usage_output_tokens_total[$__range])) or vector(0)) + (sum(increase(gen_ai_client_token_usage_sum[$__range])) or vector(0))"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Token usage by type",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (token_type, exported_job) (\n  label_replace(increase(gen_ai_client_inference_usage_input_tokens_total[$__rate_interval]), \"token_type\", \"input\", \"\", \"\")\n  or label_replace(increase(gen_ai_client_inference_usage_output_tokens_total[$__rate_interval]), \"token_type\", \"output\", \"\", \"\")\n  or label_replace(increase(gen_ai_client_inference_usage_cache_read_input_tokens_total[$__rate_interval]), \"token_type\", \"cache_read\", \"\", \"\")\n  or label_replace(increase(gen_ai_client_inference_usage_cache_write_input_tokens_total[$__rate_interval]), \"token_type\", \"cache_write\", \"\", \"\")\n  or label_replace(increase(gen_ai_client_inference_usage_reasoning_output_tokens_total[$__rate_interval]), \"token_type\", \"reasoning_output\", \"\", \"\")\n  or label_replace(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[$__rate_interval]), \"token_type\", \"input\", \"\", \"\")\n  or label_replace(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=\"output\"}[$__rate_interval]), \"token_type\", \"output\", \"\", \"\")\n)",
+          "legendFormat": "{{token_type}} ({{exported_job}})"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } }
+    },
+    {
+      "id": 6,
+      "title": "Avg chat latency by model",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (exported_job, gen_ai_request_model) (rate({__name__=~\"gen_ai_client_operation_duration(_seconds)?_sum\", gen_ai_operation_name=\"chat\"}[$__rate_interval])) / sum by (exported_job, gen_ai_request_model) (rate({__name__=~\"gen_ai_client_operation_duration(_seconds)?_count\", gen_ai_operation_name=\"chat\"}[$__rate_interval]))",
+          "legendFormat": "{{gen_ai_request_model}} ({{exported_job}})"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 7,
+      "title": "Lines of code (added/removed) — CLI only",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(github_copilot_code_lines_added_total[$__rate_interval]))", "legendFormat": "added" },
+        { "expr": "sum(increase(github_copilot_code_lines_removed_total[$__rate_interval]))", "legendFormat": "removed" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Tool calls by tool",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (gen_ai_tool_name) (increase({__name__=~\"github_copilot_tool_call_count_total|copilot_chat_tool_call_count_total\"}[$__range]))",
+          "legendFormat": "{{gen_ai_tool_name}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Agent turns per invocation (avg)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate({__name__=~\"github_copilot_agent_turn_count_sum|copilot_chat_agent_turn_count_sum\"}[$__rate_interval])) / sum(rate({__name__=~\"github_copilot_agent_turn_count_count|copilot_chat_agent_turn_count_count\"}[$__rate_interval]))"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Chat calls by source",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (exported_job) (increase({__name__=~\"gen_ai_client_operation_duration(_seconds)?_count\", gen_ai_operation_name=\"chat\"}[$__rate_interval]))",
+          "legendFormat": "{{exported_job}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } }
+    },
+    {
+      "id": 13,
+      "title": "Chat latency percentiles (p50/p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le, exported_job) (rate({__name__=~\"gen_ai_client_operation_duration(_seconds)?_bucket\", gen_ai_operation_name=\"chat\"}[$__rate_interval])))",
+          "legendFormat": "p50 ({{exported_job}})"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, exported_job) (rate({__name__=~\"gen_ai_client_operation_duration(_seconds)?_bucket\", gen_ai_operation_name=\"chat\"}[$__rate_interval])))",
+          "legendFormat": "p95 ({{exported_job}})"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 14,
+      "title": "Tool call outcomes (success/failure)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (success) (increase({__name__=~\"github_copilot_tool_call_count_total|copilot_chat_tool_call_count_total\"}[$__range]))",
+          "legendFormat": "{{success}}"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "MCP server connections by outcome (CLI only)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 37 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (increase(github_copilot_mcp_server_connection_count_total[$__range]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Recent Copilot CLI traces (no logs signal — traces are the closest equivalent)",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 45 },
+      "datasource": { "type": "tempo", "uid": "claude-tempo" },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{resource.service.name=\"github-copilot\"}",
+          "tableType": "traces",
+          "limit": 20
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Recent Copilot Chat events (VS Code only — CLI emits no logs)",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 55 },
+      "datasource": { "type": "loki", "uid": "claude-loki" },
+      "targets": [
+        { "expr": "{service_name=\"copilot-chat\"}" }
+      ]
+    }
+  ]
+}
