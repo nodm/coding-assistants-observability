@@ -308,6 +308,95 @@
           "legendFormat": "paths per decision"
         }
       ]
+    },
+    {
+      "id": 23,
+      "title": "Chat sessions (VS Code)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 89 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(copilot_chat_session_count_total[$__range]))" }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "Pull requests created (Chat)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 89 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(copilot_chat_pull_request_count_total[$__range]))" }
+      ]
+    },
+    {
+      "id": 25,
+      "title": "Chat time to first token (p95)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 89 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=~\"copilot_chat_time_to_first_token(_seconds)?_bucket\"}[$__range])))"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 26,
+      "title": "Chat edit decisions (accept/reject)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 94 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (increase(copilot_chat_chat_edit_outcome_count_total[$__range]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "title": "Lines of code via Chat (added/removed)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 94 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (type) (increase(copilot_chat_lines_of_code_count_total[$__rate_interval]))",
+          "legendFormat": "{{type}}"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "title": "User feedback (Chat)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 94 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (rating) (increase(copilot_chat_user_feedback_count_total[$__range]))",
+          "legendFormat": "{{rating}}"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "title": "Chat edit survival (4-gram / no-revert, avg)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 102 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(copilot_chat_edit_survival_four_gram_sum[$__rate_interval])) / sum(rate(copilot_chat_edit_survival_four_gram_count[$__rate_interval]))",
+          "legendFormat": "four_gram"
+        },
+        {
+          "expr": "sum(rate(copilot_chat_edit_survival_no_revert_sum[$__rate_interval])) / sum(rate(copilot_chat_edit_survival_no_revert_count[$__rate_interval]))",
+          "legendFormat": "no_revert"
+        }
+      ]
     }
   ]
 }
