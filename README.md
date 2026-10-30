@@ -20,7 +20,7 @@ Copilot Chat ─┘        (:4317 grpc,       ├──▶ Loki       (logs)
 - **otel-collector** — the only ingestion point. Receives OTLP over gRPC (4317) and HTTP (4318) from all three tools, fans out to the three backends.
 - **Prometheus** (`:9090`) — scrapes the collector's `/metrics` endpoint (exposed internally on :8889) every 15s. Stores all numeric metrics (cost, tokens, durations, counts).
 - **Loki** (`:3100`) — receives logs/events natively over OTLP (`/otlp` endpoint). Only Claude Code and Copilot Chat emit this signal; **Copilot CLI does not** (see Known Limitations).
-- **Tempo** (`:3200`) — receives traces natively over OTLP. Copilot CLI and Copilot Chat emit traces; Claude Code does not (by default, traces are beta/off).
+- **Tempo** (`:3200`) — receives traces natively over OTLP. All three tools emit traces; Claude Code's are beta and require `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` plus `OTEL_TRACES_EXPORTER=otlp`.
 - **Grafana** (`:3000`) — three dashboards, auto-provisioned from the JSON files in this repo. Anonymous access enabled (Editor role) since everything is bound to `127.0.0.1` only.
 
 All ports are bound to `127.0.0.1` — nothing is reachable from outside your machine.
@@ -29,7 +29,8 @@ All ports are bound to `127.0.0.1` — nothing is reachable from outside your ma
 
 | Dashboard | Covers |
 |---|---|
-| **Claude Code Usage** | Cost, sessions, commits, PRs, token usage, lines of code, tool-edit decisions (accept/reject, by source/language), active time, MCP connection health, API errors, hook/plugin activity, live event log |
+| **Claude Code Usage** | Cost, sessions, commits, PRs, token usage, lines of code, tool-edit decisions (accept/reject, by source/language), active time, MCP connection health, API errors, hook/plugin activity, live event log, recent traces |
+| **Claude Code - Session Analysis** | Per-session drill-down: a leaderboard table of all sessions (project, cost/tokens/active time/LOC/commits/PRs) to pick a session from, then a `$session_id`-scoped view — working directory/repo identity, token/cost/active-time breakdowns, tool-decision mix, tool latency (p95) and call volume by tool, that session's traces, and its raw event log |
 | **GitHub Copilot Usage** | Chat calls, agent invocations, tool calls, token usage, latency (avg + p50/p95), lines of code (CLI only), tool outcomes, MCP connections, CLI traces table, Chat event log |
 | **AI Assistant Overview** | Side-by-side comparison across all three tools: cost, input/output/cache/total tokens, sessions/invocations |
 
@@ -43,7 +44,7 @@ tempo.yaml                # Tempo single-binary config
 grafana/provisioning/
   datasources/datasources.yaml   # Prometheus, Loki, Tempo datasources
   dashboards/dashboards.yaml     # tells Grafana where to find dashboard JSON
-  dashboards/*.json              # the 3 dashboards themselves
+  dashboards/*.json              # the 4 dashboards themselves
 ```
 
 Telemetry **data** (Prometheus/Loki/Tempo/Grafana state) lives in named Podman/Docker volumes, **outside** this repo — nothing sensitive (no captured prompts, emails, tokens) is ever written into these files.
@@ -89,13 +90,20 @@ Add to `~/.claude/settings.json`:
 {
   "env": {
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_TRACES_EXPORTER": "otlp",
+    "OTEL_METRICS_INCLUDE_REPOSITORY": "true",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
     "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"
   }
 }
 ```
+
+`CLAUDE_CODE_ENHANCED_TELEMETRY_BETA` + `OTEL_TRACES_EXPORTER` turn on traces (beta) — per-interaction spans (`claude_code.interaction` → `llm_request`/`tool`/`hook`) with latency, token counts, and model per step, visible in the "Recent Claude Code traces" panel on the Claude Code Usage dashboard.
+
+`OTEL_METRICS_INCLUDE_REPOSITORY` tags every metric (and event) with `vcs.repository.name`/`vcs.owner.name` from the session's git remote, so a `session.id` isn't the only way to identify a session — the Session Analysis dashboard's leaderboard shows the project name next to it, and raw session IDs stay purely as a stable row key for filtering.
 
 Takes effect on the next new session (not the one you're editing it from).
 
@@ -152,6 +160,8 @@ curl -sG 'http://localhost:3100/loki/api/v1/label/service_name/values'
 - **The "Recent Copilot CLI traces" table panel (Tempo, TraceQL) was never fully confirmed to render.** I hit an unresolved "unsupported query type" error testing it via Grafana's API directly; the underlying Tempo data is solid (verified via Tempo's native API), but if that specific panel shows an error in your browser, it needs further debugging.
 - **Claude Code's "sessions" and the other tools' "invocations" aren't quite the same concept** — the Overview dashboard's session/invocation comparison is directional, not a precise apples-to-apples count.
 - **Token totals differ in what they include per tool** unless you specifically use the Overview dashboard's Input/Output/Cache/Total breakdown — a naive "total tokens" sum can silently include or exclude cache tokens depending on the source.
+- **The "Claude Code - Session Analysis" dashboard was built without a live stack to test against** (no containers were running at the time). It assumes: the collector's Prometheus exporter sanitizes the `session.id` resource attribute to a `session_id` label (standard OTel Collector behavior, same pattern as the existing `exported_job` rename); Loki's OTLP receiver exposes `session_id` and `duration_ms` as structured metadata queryable via `| session_id="..."` and `| unwrap duration_ms` (same style as the existing `event_name` filters); and Tempo's TraceQL accepts the unscoped `.session.id` attribute selector. Verify the leaderboard table's `merge` transform renders correctly and the Loki `unwrap` latency panel returns data before relying on either. The leaderboard's "Project" column and the "Session identity" panel carry the same assumption for `vcs.repository.name` → `vcs_repository_name` (metrics) and `workspace.host_paths`/`vcs_repository_name` as Loki structured-metadata fields reachable via `| keep`.
+- **Claude Code's content-logging flags (`OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_ASSISTANT_RESPONSES`, `OTEL_LOG_TOOL_DETAILS`, `OTEL_LOG_TOOL_CONTENT`, `OTEL_LOG_RAW_API_BODIES`) are deliberately left unset.** They'd put real prompt/response text, shell commands, and file contents into Loki/Tempo — strictly more useful for debugging, but a step up in what's stored even though it never leaves this machine. Set them in `~/.claude/settings.json` if you want that detail; the "Recent Claude Code traces" panel will still show spans without them, just without content attributes.
 
 ## Security notes
 

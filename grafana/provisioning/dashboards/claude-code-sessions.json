@@ -1,0 +1,273 @@
+{
+  "uid": "claude-code-sessions",
+  "title": "Claude Code - Session Analysis",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "session_id",
+        "type": "query",
+        "label": "Session",
+        "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+        "query": "label_values(claude_code_token_usage_tokens_total, session_id)",
+        "refresh": 2,
+        "sort": 0,
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Session leaderboard (sort columns to find a session, then pick it above)",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "format": "table", "expr": "sum by (session_id, vcs_repository_name) (increase(claude_code_cost_usage_USD_total[$__range]))" },
+        { "refId": "B", "instant": true, "format": "table", "expr": "sum by (session_id, vcs_repository_name) (increase(claude_code_token_usage_tokens_total[$__range]))" },
+        { "refId": "C", "instant": true, "format": "table", "expr": "sum by (session_id, vcs_repository_name) (increase(claude_code_active_time_seconds_total[$__range]))" },
+        { "refId": "D", "instant": true, "format": "table", "expr": "sum by (session_id, vcs_repository_name) (increase(claude_code_lines_of_code_count_total[$__range]))" },
+        { "refId": "E", "instant": true, "format": "table", "expr": "sum by (session_id, vcs_repository_name) (increase(claude_code_commit_count_total[$__range]))" },
+        { "refId": "F", "instant": true, "format": "table", "expr": "sum by (session_id, vcs_repository_name) (increase(claude_code_pull_request_count_total[$__range]))" }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "vcs_repository_name": "Project",
+              "Value #A": "Cost ($)",
+              "Value #B": "Total tokens",
+              "Value #C": "Active time (s)",
+              "Value #D": "Lines of code",
+              "Value #E": "Commits",
+              "Value #F": "PRs"
+            },
+            "indexByName": {
+              "session_id": 0,
+              "vcs_repository_name": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #E": 6,
+              "Value #F": 7
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "decimals": 2 },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Cost ($)" }, "properties": [ { "id": "unit", "value": "currencyUSD" }, { "id": "decimals", "value": 4 } ] },
+          { "matcher": { "id": "byName", "options": "Active time (s)" }, "properties": [ { "id": "unit", "value": "s" } ] }
+        ]
+      },
+      "options": {
+        "sortBy": [ { "displayName": "Cost ($)", "desc": true } ]
+      }
+    },
+    {
+      "id": 17,
+      "title": "Session identity (expand a log line for working directory + repo)",
+      "type": "logs",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 10 },
+      "datasource": { "type": "loki", "uid": "claude-loki" },
+      "targets": [
+        { "expr": "{service_name=\"claude-code\"} | session_id=\"$session_id\" | keep workspace_host_paths, vcs_repository_name, vcs_owner_name, terminal_type, app_entrypoint" }
+      ],
+      "options": { "dedupStrategy": "none", "sortOrder": "Ascending" }
+    },
+    {
+      "id": 2,
+      "title": "Cost ($)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(claude_code_cost_usage_USD_total{session_id=\"$session_id\"}[$__range]))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 } }
+    },
+    {
+      "id": 3,
+      "title": "Total tokens",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(claude_code_token_usage_tokens_total{session_id=\"$session_id\"}[$__range]))" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Active time (s)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(claude_code_active_time_seconds_total{session_id=\"$session_id\"}[$__range]))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 5,
+      "title": "Lines of code",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(claude_code_lines_of_code_count_total{session_id=\"$session_id\"}[$__range]))" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Commits",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(claude_code_commit_count_total{session_id=\"$session_id\"}[$__range]))" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Pull requests",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        { "expr": "sum(increase(claude_code_pull_request_count_total{session_id=\"$session_id\"}[$__range]))" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Token usage by type",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (type) (increase(claude_code_token_usage_tokens_total{session_id=\"$session_id\"}[$__rate_interval]))",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } }
+    },
+    {
+      "id": 9,
+      "title": "Cost over time by model",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (model) (increase(claude_code_cost_usage_USD_total{session_id=\"$session_id\"}[$__rate_interval]))",
+          "legendFormat": "{{model}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } }
+    },
+    {
+      "id": 10,
+      "title": "Active time by type (s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 27 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (type) (increase(claude_code_active_time_seconds_total{session_id=\"$session_id\"}[$__rate_interval]))",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 11,
+      "title": "Code edit decisions (accept/reject)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 27 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (decision) (increase(claude_code_code_edit_tool_decision_total{session_id=\"$session_id\"}[$__range]))",
+          "legendFormat": "{{decision}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Code edits by language",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 27 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (language) (increase(claude_code_code_edit_tool_decision_total{session_id=\"$session_id\"}[$__range]))",
+          "legendFormat": "{{language}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Tool latency p95 by tool (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
+      "datasource": { "type": "loki", "uid": "claude-loki" },
+      "targets": [
+        {
+          "expr": "quantile_over_time(0.95, {service_name=\"claude-code\"} | session_id=\"$session_id\" | event_name=\"tool_result\" | unwrap duration_ms [$__interval]) by (tool_name)",
+          "legendFormat": "{{tool_name}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "id": 14,
+      "title": "Tool calls by tool",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
+      "datasource": { "type": "loki", "uid": "claude-loki" },
+      "targets": [
+        {
+          "expr": "sum by (tool_name) (count_over_time({service_name=\"claude-code\"} | session_id=\"$session_id\" | event_name=\"tool_result\" [$__interval]))",
+          "legendFormat": "{{tool_name}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } }
+    },
+    {
+      "id": 15,
+      "title": "Traces for this session",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 43 },
+      "datasource": { "type": "tempo", "uid": "claude-tempo" },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{.session.id=\"$session_id\"}",
+          "tableType": "traces",
+          "limit": 20
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Event log for this session",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 53 },
+      "datasource": { "type": "loki", "uid": "claude-loki" },
+      "targets": [
+        { "expr": "{service_name=\"claude-code\"} | session_id=\"$session_id\"" }
+      ]
+    }
+  ]
+}

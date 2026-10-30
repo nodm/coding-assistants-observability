@@ -191,6 +191,21 @@
       "targets": [
         { "expr": "{service_name=\"claude-code\"}" }
       ]
+    },
+    {
+      "id": 16,
+      "title": "Recent Claude Code traces",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 55 },
+      "datasource": { "type": "tempo", "uid": "claude-tempo" },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{resource.service.name=\"claude-code\"}",
+          "tableType": "traces",
+          "limit": 20
+        }
+      ]
     }
   ]
 }
