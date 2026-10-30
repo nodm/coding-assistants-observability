@@ -201,6 +201,113 @@
       "targets": [
         { "expr": "{service_name=\"copilot-chat\"}" }
       ]
+    },
+    {
+      "id": 16,
+      "title": "Tool call latency p95 by tool",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 65 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, gen_ai_tool_name) (rate({__name__=~\"github_copilot_tool_call_duration(_seconds)?_bucket|copilot_chat_tool_call_duration(_seconds)?_bucket\"}[$__rate_interval])))",
+          "legendFormat": "{{gen_ai_tool_name}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 17,
+      "title": "Streaming latency p95 (CLI): time to first chunk / per output chunk",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 65 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=~\"gen_ai_client_inference_time_to_first_chunk(_seconds)?_bucket\"}[$__rate_interval])))",
+          "legendFormat": "time to first chunk"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=~\"gen_ai_client_inference_time_per_output_chunk(_seconds)?_bucket\"}[$__rate_interval])))",
+          "legendFormat": "time per output chunk"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 18,
+      "title": "Agent invocation duration (p50/p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 73 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le, exported_job) (rate({__name__=~\"gen_ai_invoke_agent_duration(_seconds)?_bucket|copilot_chat_agent_invocation_duration(_seconds)?_bucket\"}[$__rate_interval])))",
+          "legendFormat": "p50 ({{exported_job}})"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, exported_job) (rate({__name__=~\"gen_ai_invoke_agent_duration(_seconds)?_bucket|copilot_chat_agent_invocation_duration(_seconds)?_bucket\"}[$__rate_interval])))",
+          "legendFormat": "p95 ({{exported_job}})"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 19,
+      "title": "Model & tool calls per agent invocation (avg, CLI)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 73 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(gen_ai_invoke_agent_inference_calls_sum[$__rate_interval])) / sum(rate(gen_ai_invoke_agent_inference_calls_count[$__rate_interval]))",
+          "legendFormat": "model calls"
+        },
+        {
+          "expr": "sum(rate(gen_ai_invoke_agent_tool_calls_sum[$__rate_interval])) / sum(rate(gen_ai_invoke_agent_tool_calls_count[$__rate_interval]))",
+          "legendFormat": "tool calls"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Sandbox spawn latency p95 (CLI)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 81 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=~\"github_copilot_sandbox_spawn_duration(_seconds)?_bucket\"}[$__rate_interval])))",
+          "legendFormat": "spawn latency"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 21,
+      "title": "Sandbox operation transitions (CLI)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 81 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(increase(github_copilot_sandbox_operation_count_total[$__rate_interval]))",
+          "legendFormat": "transitions"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Sandbox filesystem policy paths per decision (avg, CLI)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 81 },
+      "datasource": { "type": "prometheus", "uid": "claude-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(github_copilot_sandbox_policy_path_count_sum[$__rate_interval])) / sum(rate(github_copilot_sandbox_policy_path_count_count[$__rate_interval]))",
+          "legendFormat": "paths per decision"
+        }
+      ]
     }
   ]
 }
