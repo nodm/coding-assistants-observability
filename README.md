@@ -109,13 +109,19 @@ Takes effect on the next new session (not the one you're editing it from).
 
 #### GitHub Copilot CLI
 
-Just one env var, set it anywhere that reaches the `copilot` process (e.g. `~/.bashrc` or `~/.zshrc`):
+Set these anywhere that reaches the `copilot` process (e.g. `~/.bashrc` or `~/.zshrc`):
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 ```
 
-That's the HTTP port (4318), not the gRPC one Claude Code uses — the CLI only speaks OTLP/HTTP.
+That's the HTTP port (4318), not the gRPC one Claude Code uses — the CLI only speaks OTLP/HTTP. Setting the endpoint alone auto-enables OTel (confirmed via `copilot help monitoring`); the CLI's own default protocol is `http/json`, which the collector's OTLP/HTTP receiver also accepts, but setting it explicitly to `http/protobuf` avoids relying on an undocumented default, consistent with the other two tools in this stack.
+
+Other env vars `copilot help monitoring` documents but this setup leaves unset:
+- `OTEL_SERVICE_NAME` / `OTEL_RESOURCE_ATTRIBUTES` — service name and custom tags (defaults already match what the dashboards assume: `github-copilot`).
+- `OTEL_LOG_LEVEL` — OTel SDK diagnostic logging, for troubleshooting a dead pipeline.
+- `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` — deliberately left `false` (the default). Mirrors the Claude Code content-logging flags: turning it on sends full prompt/response text, tool arguments and results, and effective sandbox filesystem rules to Loki/Tempo. Off by default for the same reason as Claude Code's flags — real content into local storage is a step up even though it never leaves this machine.
 
 #### GitHub Copilot Chat (VS Code)
 
@@ -125,9 +131,12 @@ Add to VS Code's settings.json:
 {
   "github.copilot.chat.otel.enabled": true,
   "github.copilot.chat.otel.exporterType": "otlp-http",
+  "github.copilot.chat.otel.protocol": "http/protobuf",
   "github.copilot.chat.otel.otlpEndpoint": "http://localhost:4318"
 }
 ```
+
+`protocol` isn't optional in practice — SigNoz's own Copilot Chat setup guide calls out that it "must be explicit," with no documented safe default. Two more settings exist but are deliberately left off: `captureContent` (prompts/responses/tool arguments — same trade-off as the CLI's content flag above) and `captureIdentity` (adds Copilot account name, OS username, and machine name to every event).
 
 **Which settings.json depends on how VS Code runs:**
 - **Plain local VS Code**: your normal user `settings.json` (`Ctrl+Shift+P` → *Preferences: Open User Settings (JSON)*).
